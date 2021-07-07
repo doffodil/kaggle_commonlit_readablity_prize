@@ -47,8 +47,8 @@ enhance_df = pd.read_csv("../input/enhance-data/Google_backtrans.csv")
 train_df = pd.concat([train_df,enhance_df],axis=0).reset_index()
 
 # 修改数据集大小,注意数据量不应小于banchsize*16条
-# train_df = train_df.sample(n=32) # 从数据集中随机选择32个样本用于训练，注意n不能小于16
-train_df = train_df.sample(frac=0.2) # 从数据集中随机选择20%的样本用于训练，注意frac最大为1
+train_df = train_df.sample(n=64) # 从数据集中随机选择32个样本用于训练，注意n不能小于16
+# train_df = train_df.sample(frac=0.2) # 从数据集中随机选择20%的样本用于训练，注意frac最大为1
 
 
 # Remove incomplete entries if any.
@@ -223,8 +223,9 @@ def train(model, model_path, train_loader, val_loader,
 
                 val_rmse = math.sqrt(eval_mse(model, val_loader))
 
-                print(f"Epoch: {epoch} batch_num: {batch_num}",
-                      f"val_rmse: {val_rmse:0.4}")
+                print(f"Epoch: {epoch} batch_num: {batch_num} / {len(train_df)//BATCH_SIZE}")
+                print(f"数据处理进度: {float(batch_num/(len(train_df)//BATCH_SIZE))*100}%")
+                print(f"val_rmse: {val_rmse:0.4}")
 
                 for rmse, period in EVAL_SCHEDULE:
                     if val_rmse >= rmse:
