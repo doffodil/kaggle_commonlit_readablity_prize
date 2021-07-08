@@ -24,13 +24,14 @@ gc.enable()
 
 # NUM_FOLDS = 2
 NUM_EPOCHS = 1
-BATCH_SIZE = 16
+BATCH_SIZE = 8
 MAX_LEN = 248
-SEED=1000
+SEED = 1000
 EVAL_SCHEDULE = [(0.50, 16), (0.49, 8), (0.48, 4), (0.47, 2), (-1., 1)]
 ROBERTA_PATH = "../input/roberta-base"
 TOKENIZER_PATH = "../input/roberta-base"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+# DEVICE = "cpu"
 
 def set_random_seed(random_seed):
     random.seed(random_seed)
@@ -43,6 +44,7 @@ def set_random_seed(random_seed):
 
     torch.backends.cudnn.deterministic = True
 
+
 set_random_seed(SEED)
 
 train_df = pd.read_csv("../input/commonlitreadabilityprize/train.csv")
@@ -50,8 +52,10 @@ enhance_df = pd.read_csv("../input/enhance-data/Google_backtrans.csv")
 train_df = pd.concat([train_df,enhance_df],axis=0).reset_index()
 
 # 修改数据集大小,注意数据量不应小于banchsize*16条
-# train_df = train_df.sample(n=64) # 从数据集中随机选择32个样本用于训练，注意n不能小于16
-train_df = train_df.sample(frac=1) # 从数据集中随机选择20%的样本用于训练，注意frac最大为1
+train_df = train_df.sample(n=300) # 从数据集中随机选择32个样本用于训练，注意n不能小于batchsize*16
+# train_df = train_df.sample(frac=0.2) # 从数据集中随机选择20%的样本用于训练，注意frac最大为1
+
+
 
 
 # Remove incomplete entries if any.
@@ -226,9 +230,8 @@ def train(model, model_path, train_loader, val_loader,
 
                 val_rmse = math.sqrt(eval_mse(model, val_loader))
 
-                print(f"Epoch: {epoch} batch_num: {batch_num} / {len(train_df)//BATCH_SIZE}")
-                print(f"数据处理进度: {float(batch_num/(len(train_df)//BATCH_SIZE))*100}%")
-                print(f"val_rmse: {val_rmse:0.4}")
+                print(f"Epoch: {epoch} batch_num: {batch_num}",
+                      f"val_rmse: {val_rmse:0.4}")
 
                 for rmse, period in EVAL_SCHEDULE:
                     if val_rmse >= rmse:
@@ -293,34 +296,33 @@ list_val_rmse = []
 # print(f"\nFold {fold + 1}/{NUM_FOLDS}")
 model_path = f"model_1.pth"
 
-
-train_dataset = LitDataset(train_df)
-val_dataset = LitDataset(train_df)
-
-train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE,
-                          drop_last=True, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE,
-                        drop_last=False, shuffle=False)
-
-
-
-model = LitModel().to(DEVICE)
-
-optimizer = create_optimizer(model)
-scheduler = get_cosine_schedule_with_warmup(
-    optimizer,
-    num_training_steps=NUM_EPOCHS * len(train_loader),
-    num_warmup_steps=50)
-
-list_val_rmse.append(train(model, model_path, train_loader,
-                           val_loader, optimizer, scheduler=scheduler))
-
-del model
+#
+# train_dataset = LitDataset(train_df)
+# val_dataset = LitDataset(train_df)
+#
+# train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE,
+#                           drop_last=True, shuffle=True)
+# val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE,
+#                         drop_last=False, shuffle=False)
+#
+#
+# model = LitModel().to(DEVICE)
+#
+# optimizer = create_optimizer(model)
+# scheduler = get_cosine_schedule_with_warmup(
+#     optimizer,
+#     num_training_steps=NUM_EPOCHS * len(train_loader),
+#     num_warmup_steps=50)
+#
+# list_val_rmse.append(train(model, model_path, train_loader,
+#                            val_loader, optimizer, scheduler=scheduler))
+#
+# del model
 gc.collect()
 
-print("\nPerformance estimates:")
-print(list_val_rmse)
-print("Mean:", np.array(list_val_rmse).mean())
+# print("\nPerformance estimates:")
+# print(list_val_rmse)
+# print("Mean:", np.array(list_val_rmse).mean())
 
 
 test_dataset = LitDataset(test_df, inference_only=True)
@@ -331,20 +333,22 @@ test_dataset = LitDataset(test_df, inference_only=True)
 test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE,
                          drop_last=False, shuffle=False)
 
-for index in range(len(list_val_rmse)):
-    model_path = f"model_1.pth"
-    print(f"\nUsing {model_path}")
 
-    model = LitModel()
-    model.load_state_dict(torch.load(model_path))
-    model.to(DEVICE)
 
-    all_predictions[index] = predict(model, test_loader)
 
-    del model
-    gc.collect()
+model_path = f"model_1.pth"
+print(f"\nUsing {model_path}")
 
-predictions = all_predictions.mean(axis=0)
+model = LitModel()
+model.load_state_dict(torch.load(model_path))
+model.to(DEVICE)
+
+all_predictions = predict(model, test_loader)
+
+del model
+gc.collect()
+
+predictions = all_predictions
 submission_df.target = predictions
 print(submission_df)
 submission_df.to_csv("submission.csv", index=False)
