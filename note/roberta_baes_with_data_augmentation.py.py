@@ -48,7 +48,7 @@ set_random_seed(SEED)
 
 train_df = pd.read_csv("../input/commonlitreadabilityprize/train.csv")
 enhance_df = pd.read_csv("../input/enhance-data/Google_backtrans.csv")
-train_df = pd.concat([train_df,enhance_df],axis=0).reset_index()
+train_df = pd.concat([train_df,enhance_df],axis=0).reindex()
 
 # 修改数据集大小,注意数据量不应小于banchsize*16条
 # train_df = train_df.sample(n=64) # 从数据集中随机选择32个样本用于训练，注意n不能小于16
