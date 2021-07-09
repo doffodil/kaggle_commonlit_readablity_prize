@@ -2,6 +2,7 @@ import os
 import math
 import random
 import time
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -152,6 +153,28 @@ class LitModel(nn.Module):
         # Now we reduce the context vector to the prediction score.
         return self.regressor(context_vector)
 
+def eval_on_valid(epoch, batch_num):
+    if os.path.exists("../input/commonlitreadabilityprize/valid.csv"):
+        valid_df = pd.read_csv("../input/commonlitreadabilityprize/valid.csv")
+        valid_dataset = LitDataset(valid_df, inference_only=True)
+        valid_loader = DataLoader(valid_dataset, batch_size=BATCH_SIZE,
+                                 drop_last=False, shuffle=False)
+        model_path = f"model_1.pth"
+        print(f"\nUsing {model_path} for eval valid")
+        model = LitModel()
+        model.load_state_dict(torch.load(model_path))
+        model.to(DEVICE)
+        eval_result = predict(model, valid_loader)
+        valid_target = valid_df.loc[:,'target'].values
+        del model
+        gc.collect()
+        ans = np.square(valid_target-eval_result)
+        mse = np.sqrt(sum(ans)/len(ans))
+        print('*' * 20 + 'score on valid' + '*' * 20)
+        print(f"验证集得分: {mse:0.4}")
+        print('*' * 20 + '**************' + '*' * 20)
+    else:
+        warnings.warn('valid.csv is not exists, so jump over the eval',RuntimeWarning)
 
 def eval_mse(model, data_loader):
     """Evaluates the mean squared error of the |model| on |data_loader|"""
@@ -354,3 +377,5 @@ predictions = all_predictions
 submission_df.target = predictions
 print(submission_df)
 submission_df.to_csv("submission.csv", index=False)
+
+eval_on_valid()
