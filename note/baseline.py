@@ -144,7 +144,7 @@ class LitModel(nn.Module):
         # Now we reduce the context vector to the prediction score.
         return self.regressor(context_vector)
 
-def eval_on_valid(epoch, batch_num):
+def eval_on_valid():
     if os.path.exists("../input/commonlitreadabilityprize/valid.csv"):
         valid_df = pd.read_csv("../input/commonlitreadabilityprize/valid.csv")
         valid_dataset = LitDataset(valid_df, inference_only=True)
