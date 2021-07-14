@@ -23,6 +23,7 @@ from sklearn.model_selection import KFold
 import gc
 gc.enable()
 
+model_path = f"model_1.pth"
 # NUM_FOLDS = 2
 NUM_EPOCHS = 1
 BATCH_SIZE = 8
@@ -150,7 +151,6 @@ def eval_on_valid():
         valid_dataset = LitDataset(valid_df, inference_only=True)
         valid_loader = DataLoader(valid_dataset, batch_size=BATCH_SIZE,
                                  drop_last=False, shuffle=False)
-        model_path = f"model_1.pth"
         print(f"\nUsing {model_path} for eval valid")
         model = LitModel()
         model.load_state_dict(torch.load(model_path))
@@ -311,7 +311,6 @@ list_val_rmse = []
 
 # for fold, (train_indices, val_indices) in enumerate(kfold.split(train_df)):
 # print(f"\nFold {fold + 1}/{NUM_FOLDS}")
-model_path = f"model_1.pth"
 
 
 train_dataset = LitDataset(train_df)
@@ -352,7 +351,6 @@ test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE,
                          drop_last=False, shuffle=False)
 
 for index in range(len(list_val_rmse)):
-    model_path = f"model_1.pth"
     print(f"\nUsing {model_path}")
 
     model = LitModel()
