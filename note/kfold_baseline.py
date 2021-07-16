@@ -23,11 +23,10 @@ from sklearn.model_selection import KFold
 
 import gc
 gc.enable()
-
-model_path = f"name_your_model_name.pth"
-# NUM_FOLDS = 2
+K_zhe = 5
 NUM_EPOCHS = 3
 BATCH_SIZE = 16
+model_path = (f"name_your_model_name_E{NUM_EPOCHS}_B{BATCH_SIZE}.pth")
 MAX_LEN = 248
 SEED=1000
 EVAL_SCHEDULE = [(0.50, 16), (0.49, 8), (0.48, 4), (0.47, 2), (-1., 1)]
@@ -51,8 +50,8 @@ set_random_seed(SEED)
 train_df = pd.read_csv("../input/commonlitreadabilityprize/train.csv")
 
 # 修改数据集大小,注意数据量不应小于banchsize*16条
-# train_df = train_df.sample(n=32) # 从数据集中随机选择32个样本用于训练，注意n不能小于16
-train_df = train_df.sample(frac=1) # 从数据集中随机选择20%的样本用于训练，注意frac最大为1
+train_df = train_df.sample(n=32) # 从数据集中随机选择32个样本用于训练，注意n不能小于16
+# train_df = train_df.sample(frac=1) # 从数据集中随机选择20%的样本用于训练，注意frac最大为1
 
 # Remove incomplete entries if any.
 train_df.drop(train_df[(train_df.target == 0) & (train_df.standard_error == 0)].index,
@@ -313,58 +312,50 @@ def plt_loss(loss_line):
     plt.savefig(f'./{model_path[:-4]}_loss.jpg')
     # plt.show()
 
-gc.collect()
-
 list_val_rmse = []
+kflod = KFold(n_splits=K_zhe, random_state=1023, shuffle=True)
+for flod, (train_index, val_index) in enumerate(kflod.split(train_df)):
+    gc.collect()
+    print(f'第{flod+1}/{K_zhe}次交叉验证')
+    k_model_path = model_path[:-4]+'_'+str(flod)+'.pth'
+    set_random_seed(SEED+flod)
 
-# kfold = KFold(n_splits=NUM_FOLDS, random_state=SEED, shuffle=True)
+    train_dataset = LitDataset(train_df)
+    val_dataset = LitDataset(train_df)
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE,
+                              drop_last=True, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE,
+                            drop_last=False, shuffle=False)
+    model = LitModel().to(DEVICE)
+    optimizer = create_optimizer(model)
+    scheduler = get_cosine_schedule_with_warmup(
+        optimizer,
+        num_training_steps=NUM_EPOCHS * len(train_loader),
+        num_warmup_steps=50)
 
-# for fold, (train_indices, val_indices) in enumerate(kfold.split(train_df)):
-# print(f"\nFold {fold + 1}/{NUM_FOLDS}")
+    list_val_rmse.append(train(model, k_model_path, train_loader,
+                               val_loader, optimizer, scheduler=scheduler))
+    del model
 
-
-train_dataset = LitDataset(train_df)
-val_dataset = LitDataset(train_df)
-
-train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE,
-                          drop_last=True, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE,
-                        drop_last=False, shuffle=False)
-
-
-
-model = LitModel().to(DEVICE)
-
-optimizer = create_optimizer(model)
-scheduler = get_cosine_schedule_with_warmup(
-    optimizer,
-    num_training_steps=NUM_EPOCHS * len(train_loader),
-    num_warmup_steps=50)
-
-list_val_rmse.append(train(model, model_path, train_loader,
-                           val_loader, optimizer, scheduler=scheduler))
-
-del model
 gc.collect()
-
 print("\nPerformance estimates:")
 print(list_val_rmse)
 print("Mean:", np.array(list_val_rmse).mean())
 
 
 test_dataset = LitDataset(test_df, inference_only=True)
-
 all_predictions = np.zeros((len(list_val_rmse), len(test_df)))
 
 test_dataset = LitDataset(test_df, inference_only=True)
 test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE,
                          drop_last=False, shuffle=False)
 
+
 for index in range(len(list_val_rmse)):
     print(f"\nUsing {model_path}")
-
+    test_model_path = model_path[:-4]+'_'+str(index)+'.pth'
     model = LitModel()
-    model.load_state_dict(torch.load(model_path))
+    model.load_state_dict(torch.load(test_model_path))
     model.to(DEVICE)
 
     all_predictions[index] = predict(model, test_loader)
@@ -378,4 +369,3 @@ print(submission_df)
 submission_df.to_csv("submission.csv", index=False)
 
 plt_loss(loss_line)
-eval_on_valid()
