@@ -50,8 +50,8 @@ set_random_seed(SEED)
 train_df = pd.read_csv("../input/commonlitreadabilityprize/train.csv")
 
 # 修改数据集大小,注意数据量不应小于banchsize*16条
-train_df = train_df.sample(n=32) # 从数据集中随机选择32个样本用于训练，注意n不能小于16
-# train_df = train_df.sample(frac=1) # 从数据集中随机选择20%的样本用于训练，注意frac最大为1
+# train_df = train_df.sample(n=32) # 从数据集中随机选择32个样本用于训练，注意n不能小于16
+train_df = train_df.sample(frac=1) # 从数据集中随机选择20%的样本用于训练，注意frac最大为1
 
 # Remove incomplete entries if any.
 train_df.drop(train_df[(train_df.target == 0) & (train_df.standard_error == 0)].index,
