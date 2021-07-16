@@ -6,6 +6,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
@@ -23,10 +24,10 @@ from sklearn.model_selection import KFold
 import gc
 gc.enable()
 
-model_path = f"model_1.pth"
+model_path = f"name_your_model_name.pth"
 # NUM_FOLDS = 2
-NUM_EPOCHS = 1
-BATCH_SIZE = 8
+NUM_EPOCHS = 2
+BATCH_SIZE = 1
 MAX_LEN = 248
 SEED=1000
 EVAL_SCHEDULE = [(0.50, 16), (0.49, 8), (0.48, 4), (0.47, 2), (-1., 1)]
@@ -50,8 +51,8 @@ set_random_seed(SEED)
 train_df = pd.read_csv("../input/commonlitreadabilityprize/train.csv")
 
 # 修改数据集大小,注意数据量不应小于banchsize*16条
-# train_df = train_df.sample(n=64) # 从数据集中随机选择32个样本用于训练，注意n不能小于16
-train_df = train_df.sample(frac=1) # 从数据集中随机选择20%的样本用于训练，注意frac最大为1
+train_df = train_df.sample(n=32) # 从数据集中随机选择32个样本用于训练，注意n不能小于16
+# train_df = train_df.sample(frac=1) # 从数据集中随机选择20%的样本用于训练，注意frac最大为1
 
 # Remove incomplete entries if any.
 train_df.drop(train_df[(train_df.target == 0) & (train_df.standard_error == 0)].index,
@@ -204,7 +205,7 @@ def predict(model, data_loader):
 
     return result
 
-
+loss_line = []
 def train(model, model_path, train_loader, val_loader,
           optimizer, scheduler=None, num_epochs=NUM_EPOCHS):
     best_val_rmse = None
@@ -249,6 +250,7 @@ def train(model, model_path, train_loader, val_loader,
                 print(f"Epoch: {epoch} batch_num: {batch_num} / {len(train_df)//BATCH_SIZE}")
                 print(f"数据处理进度: {float(batch_num/(len(train_df)//BATCH_SIZE))*100}%")
                 print(f"val_rmse: {val_rmse:0.4}")
+                loss_line.append(val_rmse)
 
                 for rmse, period in EVAL_SCHEDULE:
                     if val_rmse >= rmse:
@@ -302,6 +304,14 @@ def create_optimizer(model):
 
     return AdamW(parameters)
 
+def plt_loss(loss_line):
+    print(loss_line)
+    t = np.arange(1, len(loss_line) + 1, 1)
+    plt.plot(t, loss_line, 'r')
+    label = ['loss']
+    plt.legend(label, loc='upper left')
+    plt.savefig(f'./{model_path[:-4]}_loss.jpg')
+    # plt.show()
 
 gc.collect()
 
@@ -367,4 +377,5 @@ submission_df.target = predictions
 print(submission_df)
 submission_df.to_csv("submission.csv", index=False)
 
+plt_loss(loss_line)
 eval_on_valid()
